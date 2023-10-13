@@ -7,7 +7,7 @@
 	--* Pre-define some builtin functions that are used
 -------------------------------------------------------------------]]
 
-local typeof = typeof or type;
+local typeof = type;
 
 local Coroutine_yield   = coroutine.yield
 local Coroutine_resume  = coroutine.resume;
