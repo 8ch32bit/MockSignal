@@ -1,6 +1,8 @@
 --[[-----------------------------------------------------------------
 	--* This was written by 8ch_32bit on 13/10/2023
 	--* MockSignal.lua: A standard lua version of MockSignal
+		This version is for Lua 5.1 (Can work with higher
+		versions, but is recommended to use the other file)
 -------------------------------------------------------------------]]
 
 --[[-----------------------------------------------------------------
