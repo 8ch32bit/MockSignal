@@ -14,32 +14,8 @@ local Coroutine_resume  = coroutine.resume;
 local Coroutine_create  = coroutine.create;
 local Coroutine_running = coroutine.running;
 
-local Table_pack   = function(...) return { ... } end;
-local Table_unpack = unpack;
-
-local UnpackRecursor;
-
-if not Table_unpack then
-	UnpackRecursor = function(Table, Start, Limit) -- Recursive unpack method
-		local Value = Table[Start];
-
-		if Value or Start == Limit then
-			return Value;
-		end;
-
-		return Table_unpack(Table, Start + 1, Limit);
-	end;
-
-	Table_unpack = function(Table, Start, Limit)
-		local TableLen = #Table;
-		
-		if TableLen == 0 then
-			return;
-		end;
-
-		return UnpackRecursor(Table, Start or 0, Limit or TableLen);
-	end;
-end;
+local Table_pack   = table.pack;
+local Table_unpack = table.unpack;
 
 --[[-----------------------------------------------------------------
 	--* Main module library
@@ -65,9 +41,12 @@ end;
 function MockSignal:Fire(...)
 	local Iterations = #self;
 	
-	for Idx = 1, Iterations do
-		::continue::
-		
+	local Idx = 0;
+	
+	::continue::
+	
+	while Idx <= Iterations do
+		Idx = Idx + 1;
 		local Obj = self[Idx];
 		
 		if typeof(Obj) == "thread" then -- Resuming threads are loop priority
