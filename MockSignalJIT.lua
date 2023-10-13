@@ -7,15 +7,17 @@
 	--* Pre-define some builtin functions that are used
 -------------------------------------------------------------------]]
 
-local typeof = typeof or type;
+jit.on();
+
+local typeof = type;
 
 local Coroutine_yield   = coroutine.yield
 local Coroutine_resume  = coroutine.resume;
 local Coroutine_create  = coroutine.create;
 local Coroutine_running = coroutine.running;
 
-local Table_pack   = table.pack   or function(...) return { ... } end;
-local Table_unpack = table.unpack or unpack;
+local Table_pack   = function(...) return { ... } end;
+local Table_unpack = unpack;
 
 local UnpackRecursor;
 
@@ -66,13 +68,17 @@ function MockSignal:Fire(...)
 	local Iterations = #self;
 	
 	for Idx = 1, Iterations do
+		::continue::
+		
 		local Obj = self[Idx];
 		
 		if typeof(Obj) == "thread" then -- Resuming threads are loop priority
 			Coroutine_resume(Obj, ...);
-		else
-			Coroutine_resume(Coroutine_create(Obj.Listener, ...));
+
+			goto continue;
 		end;
+		
+		Coroutine_resume(Coroutine_create(Obj.Listener), ...);
 	end;
 end;
 
