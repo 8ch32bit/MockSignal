@@ -82,7 +82,7 @@ end;
 		signal is fired using the Signal:Fire() method
 	--* returns: The created connection object
 -------------------------------------------------------------------]]
-function MockSignal:Connect()
+function MockSignal:Connect(Func)
 	local Self = self; -- So it can be used in a different scope
 	local I    = #self + 1;
 
