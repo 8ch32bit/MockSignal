@@ -67,9 +67,12 @@ end;
 function MockSignal:Fire(...)
 	local Iterations = #self;
 	
-	for Idx = 1, Iterations do
-		::continue::
-		
+	local Idx = 0;
+	
+	::continue::
+	
+	while Idx <= Iterations do
+		Idx = Idx + 1;
 		local Obj = self[Idx];
 		
 		if typeof(Obj) == "thread" then -- Resuming threads are loop priority
