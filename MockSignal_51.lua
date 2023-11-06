@@ -10,6 +10,8 @@
 -------------------------------------------------------------------]]
 
 local typeof = type;
+local coroutine = coroutine;
+local table = table;
 
 local Coroutine_yield   = coroutine.yield
 local Coroutine_resume  = coroutine.resume;
