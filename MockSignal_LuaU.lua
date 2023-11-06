@@ -6,9 +6,15 @@
 		contexts
 -------------------------------------------------------------------]]
 
+local UseSpawn = true;
+
 --[[-----------------------------------------------------------------
 	--* Pre-define some builtin functions that are used
 -------------------------------------------------------------------]]
+
+local task = task;
+local coroutine = coroutine;
+local table = table;
 
 local Coroutine_yield   = coroutine.yield
 local Coroutine_resume  = coroutine.resume;
@@ -17,7 +23,7 @@ local Coroutine_running = coroutine.running;
 local Table_pack   = table.pack;
 local Table_unpack = table.unpack;
 
-local Task_defer = task.defer;
+local NoYieldCall = UseSpawn and task.spawn or task.defer;
 
 --[[-----------------------------------------------------------------
 	--* Main module library
@@ -52,7 +58,7 @@ function MockSignal:Fire(...)
 			continue;
 		end;
 		
-		Task_defer(Obj.Listener, ...);
+		NoYieldCall(Obj.Listener, ...);
 	end;
 end;
 
