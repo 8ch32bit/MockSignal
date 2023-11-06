@@ -8,7 +8,9 @@
 	--* Pre-define some builtin functions that are used
 -------------------------------------------------------------------]]
 
-jit.on();
+local jit = jit;
+local coroutine = coroutine;
+local table = table;
 
 local typeof = type;
 
@@ -19,6 +21,8 @@ local Coroutine_running = coroutine.running;
 
 local Table_pack   = table.pack;
 local Table_unpack = table.unpack;
+
+jit.on();
 
 --[[-----------------------------------------------------------------
 	--* Main module library
