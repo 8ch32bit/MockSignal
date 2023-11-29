@@ -50,15 +50,7 @@ function MockSignal:Fire(...)
 	local Iterations = #self;
 	
 	for Idx = 1, Iterations do
-		local Obj = self[Idx];
-		
-		if typeof(Obj) == "thread" then -- Resuming threads are loop priority
-			Coroutine_resume(Obj, ...);
-			
-			continue;
-		end;
-		
-		NoYieldCall(Obj.Listener, ...);
+		NoYieldCall(self[Idx].Listener, ...);
 	end;
 end;
 
