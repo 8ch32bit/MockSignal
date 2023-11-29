@@ -9,6 +9,9 @@
 -------------------------------------------------------------------]]
 
 local jit = jit;
+
+jit.on();
+
 local coroutine = coroutine;
 local table = table;
 
@@ -21,8 +24,6 @@ local Coroutine_running = coroutine.running;
 
 local Table_pack   = table.pack;
 local Table_unpack = table.unpack;
-
-jit.on();
 
 --[[-----------------------------------------------------------------
 	--* Main module library
