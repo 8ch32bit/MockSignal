@@ -79,6 +79,31 @@ function MockSignal:Connect(Function)
 end;
 
 --[[-----------------------------------------------------------------
+	--* TODO: Makes a new connection, that disconnects after fired.
+	--* returns: The created connection object
+-------------------------------------------------------------------]]
+function MockSignal:Once(Function)
+	local Self = self; -- So it can be used in different stacks
+	local I    = #self + 1;
+	
+	local Connection = { Listener = function()
+		Self[I] = nil;
+		return Function();
+	end};
+	
+	--[[-----------------------------------------------------------------
+		--* TODO: Disconnect the connection from the parenting signal
+	-------------------------------------------------------------------]]
+	function Connection:Disconnect()
+		Self[I] = nil;
+	end;
+	
+	self[I] = Connection;
+	
+	return Connection;
+end;
+
+--[[-----------------------------------------------------------------
 	--* TODO: Yield the thread that this function is called in
 		until the parenting signal is fired using Signal:Fire()
 	--* returns: Any parameters passed through Signal:Fire()
