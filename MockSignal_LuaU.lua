@@ -22,6 +22,7 @@ local task = task;
 local coroutine = coroutine;
 local table = table;
 local setmetatable = setmetatable;
+local typeof = typeof;
 
 -- Pre-define library functions for speed + tidyness
 
