@@ -1,51 +1,82 @@
 --[[-----------------------------------------------------------------
-	--* This was written by 8ch_32bit on 9/10/2023
-	--* MockSignal.luau: A Luau module that emulates RBXScriptSignal
-		instances, indended to be the fastest signal implementation.
-		This module is cross-compatible with both client and server
-		contexts
+	--* Written by 8ch_32bit on 9/10/2023
+	--* MockSignal.luau: A Luau module that emulates RBXScriptSignal instances
+	--* Patch notes (v1.0.1, 2/6/2024):
+		--* Replaced table.pack with raw table packing
+		--* Renamed and reorganzied things for readability
+		--* Added some config stuff (Includes firing mode and pcall mode)
 -------------------------------------------------------------------]]
 
-local UseSpawn = true;
+if _VERSION ~= "Luau" then
+	return print("Make sure you are using LuaU, not Lua 5.x");
+end;
 
---[[-----------------------------------------------------------------
-	--* Pre-define some builtin functions that are used
--------------------------------------------------------------------]]
+-- Config
+
+local SIGNAL_FIRE_METHOD = "DEFERRED"; -- Can be either "DEFERRED" (Utilizes task.defer), "IMMEDIATE" (Utilizes task.spawn) or "DEFAULT" (Utilizes coroutine.resume). This is a MockSignal LuaU only feature
+local USES_PCALL = false; -- Set to true if you wish for signal fires to be pcall()'ed
+
+-- Localize libraries/functions
 
 local task = task;
 local coroutine = coroutine;
 local table = table;
+local setmetatable = setmetatable;
 
-local Coroutine_yield   = coroutine.yield
-local Coroutine_resume  = coroutine.resume;
-local Coroutine_running = coroutine.running;
+-- Pre-define library functions for speed + tidyness
 
-local Table_pack   = table.pack;
-local Table_unpack = table.unpack;
+local coroutine_yield = coroutine.yield;
+local coroutine_running = coroutine.running;
 
-local NoYieldCall = UseSpawn and task.spawn or task.defer;
+local table_unpack = table.unpack;
 
---[[-----------------------------------------------------------------
-	--* Main module library
--------------------------------------------------------------------]]
+local NoYieldCall;
+
+if SIGNAL_FIRE_METHOD == "IMMEDIATE" then
+	NoYieldCall = task.spawn;
+elseif SIGNAL_FIRE_METHOD == "DEFERRED" then
+	NoYieldCall = task.defer;
+elseif SIGNAL_FIRE_METHOD == "STANDARD" then
+	local coroutine_create = coroutine.create;
+	local coroutine_resume = coroutine.resume;
+	
+	NoYieldCall = function(FunctionOrThread, ...)
+		-- Identical functionality to task.spawn, just with coroutines
+		local PassedType = typeof(FunctionOrThread);
+		local IsThread = PassedType == "thread";
+		local IsFunction = PassedType == "function";
+
+		if not (IsThread or IsFunction) then
+			return;
+		end;
+
+		if IsFunction then
+			FunctionOrThread = coroutine_create(FunctionOrThread)
+		end;
+		
+		coroutine_resume(FunctionOrThread, ...);
+
+		return FunctionOrThread;
+	end;
+end;
+
+if USES_PCALL then
+	local Localized = NoYieldCall;
+	
+	NoYieldCall = function(...)
+		local Results = { pcall(Localized, ...) };
+
+		return table_unpack(Results, 2, #Results);
+	end;
+end;
 
 local MockSignal = {};
-
 MockSignal.__index = MockSignal;
-MockSignal.__type  = "MockSignal";
 
---[[-----------------------------------------------------------------
-	--* TODO: Returns a new Signal instance
-	--* returns: Signal
--------------------------------------------------------------------]]
 function MockSignal.new()
 	return setmetatable({}, MockSignal);
 end;
 
---[[-----------------------------------------------------------------
-	--* TODO: Call all of the connected functions, and resume
-		any yielded threads
--------------------------------------------------------------------]]
 function MockSignal:Fire(...)
 	local Iterations = #self;
 	
@@ -54,23 +85,27 @@ function MockSignal:Fire(...)
 	end;
 end;
 
---[[-----------------------------------------------------------------
-	--* TODO: Makes a new signal connection using the given
-		function, This function will be called when the parenting
-		signal is fired using the Signal:Fire() method
-	--* returns: The created connection object
--------------------------------------------------------------------]]
-function MockSignal:Connect(Function)
-	local Self = self; -- So it can be used in different stacks
-	local I    = #self + 1;
+function MockSignal:Wait()
+	local Index = #self + 1;
+	local RunningThread = coroutine_running();
 	
-	local Connection = { Listener = Function };
+	self[Index] = RunningThread;
 	
-	--[[-----------------------------------------------------------------
-		--* TODO: Disconnect the connection from the parenting signal
-	-------------------------------------------------------------------]]
+	local Returns = { coroutine_yield() };
+	
+	self[Index] = nil;
+	
+	return table_unpack(Returns);
+end;
+
+function MockSignal:Connect(ListenerFunction)
+	local Index = #self + 1;
+	local Signals = self; -- For readability and lower-stack access
+	
+	local Connection = { Listener = ListenerFunction };
+	
 	function Connection:Disconnect()
-		Self[I] = nil;
+		Signals[I] = nil;
 	end;
 	
 	self[I] = Connection;
@@ -78,52 +113,22 @@ function MockSignal:Connect(Function)
 	return Connection;
 end;
 
---[[-----------------------------------------------------------------
-	--* TODO: Makes a new connection, that disconnects after fired.
-	--* returns: The created connection object
--------------------------------------------------------------------]]
-function MockSignal:Once(Function)
-	local Self = self; -- So it can be used in different stacks
-	local I    = #self + 1;
+function MockSignal:Once(ListenerFunction)
+	local Index = #self + 1;
+	local Signals = self; -- For readability and lower-stack access
 	
 	local Connection = { Listener = function()
-		Self[I] = nil;
-		return Function();
+		Signals[Index] = nil;
+		return ListenerFunction();
 	end};
 	
-	--[[-----------------------------------------------------------------
-		--* TODO: Disconnect the connection from the parenting signal
-	-------------------------------------------------------------------]]
 	function Connection:Disconnect()
-		Self[I] = nil;
+		Signals[Index] = nil;
 	end;
 	
-	self[I] = Connection;
+	self[Index] = Connection;
 	
 	return Connection;
 end;
-
---[[-----------------------------------------------------------------
-	--* TODO: Yield the thread that this function is called in
-		until the parenting signal is fired using Signal:Fire()
-	--* returns: Any parameters passed through Signal:Fire()
-	--* NOTE: This function uses a similar method to
-		@Xan_TheDragon's signal implementation from FastCastRedux
--------------------------------------------------------------------]]
-function MockSignal:Wait()
-	local I = #self + 1;
-	
-	self[I] = Coroutine_running();
-	
-	local A = Table_pack(Coroutine_yield());
-	
-	self[I] = nil;
-	
-	return Table_unpack(A);
-end;
-
---[[-----------------------------------------------------------------
-	--* Return the library
--------------------------------------------------------------------]]
 
 return MockSignal;
