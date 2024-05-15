@@ -102,11 +102,7 @@ function MockSignal:Wait()
 end;
 
 function MockSignal:DisconnectAll()
-	local Connections = self.Connections;
-
-	for Idx in ipairs(Connections) do
-		Connections[Idx] = nil;
-	end;
+	table.clear(self.Connections);
 end;
 
 function MockSignal:Destroy()
