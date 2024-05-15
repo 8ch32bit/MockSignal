@@ -1,43 +1,43 @@
--- Author: 8ch_32bit
--- RBXScriptSignal emulation tailored for max performance
+--// Author: 8ch_32bit
+--// RBXScriptSignal emulation tailored for max performance
 
 local MockSignal = {};
 
 MockSignal.__index = MockSignal;
 MockSignal.__type = "MockSignal"; -- if you ever do checks
 
--- TODO: Create a new MockSignal instance
--- the Name arg doesn't actually alter any behavior, but is just there for when you need it
 function MockSignal.new(Name)
 	local self = {};
-	
+
+	self.Connections = {};
+	self.YieldingThreads = {};
+
 	if Name then
 		self.Name = `{Name}`;
 	end;
-	
+
 	return setmetatable(self, MockSignal);
 end;
 
--- TODO: Fire all connections and release all yielding threads
 function MockSignal:Fire(...)
 	-- Free yielding threads
 	task.spawn(function(...)
 		local YieldingThreads = self.YieldingThreads;
-		
+
 		for Index, Thread in ipairs(YieldingThreads) do
 			task.spawn(Thread, ...);
 			-- remove thread
 			YieldingThreads[Index] = nil;
 		end;
 	end, ...);
-	
+
 	-- Fire connection functions
 	task.spawn(function(...)
 		local Connections = self.Connections;
-		
+
 		for Index, Connection in ipairs(Connections) do
 			task.spawn(Connection.Listener, ...);
-			
+
 			-- remove the signal if it can only be fired once
 			if Connection.FiresOnce then
 				Connections[Index] = nil;
@@ -89,10 +89,10 @@ end;
 function MockSignal:Wait()
 	local YieldingThreads = self.YieldingThreads;
 	local Index = #YieldingThreads + 1;
-	
+
 	local Thread = coroutine.running();
 
-	YieldingThreads[Index] = { Listener = Thread };
+	YieldingThreads[Index] = Thread;
 
 	local Returns = { coroutine.yield() };
 
@@ -111,7 +111,7 @@ end;
 
 function MockSignal:Destroy()
 	self:DisconnectAll();
-	
+
 	table.clear(self);
 	setmetatable(self, nil);
 end;
