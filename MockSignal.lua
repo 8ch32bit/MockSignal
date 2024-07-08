@@ -4,7 +4,7 @@
 local MockSignal = {};
 
 MockSignal.__index = MockSignal;
-MockSignal.__type = "MockSignal"; -- if you ever do checks
+MockSignal.__type = "MockSignal";
 
 function MockSignal.new(Name)
 	local self = {};
@@ -20,25 +20,21 @@ function MockSignal.new(Name)
 end;
 
 function MockSignal:Fire(...)
-	-- Free yielding threads
 	task.spawn(function(...)
 		local YieldingThreads = self.YieldingThreads;
 
 		for Index, Thread in ipairs(YieldingThreads) do
-			task.spawn(Thread, ...);
-			-- remove thread
+			coroutine.resume(Thread, ...);
 			YieldingThreads[Index] = nil;
 		end;
 	end, ...);
-
-	-- Fire connection functions
+	
 	task.spawn(function(...)
 		local Connections = self.Connections;
 
 		for Index, Connection in ipairs(Connections) do
 			task.spawn(Connection.Listener, ...);
 
-			-- remove the signal if it can only be fired once
 			if Connection.FiresOnce then
 				Connections[Index] = nil;
 			end;
@@ -59,8 +55,6 @@ function MockSignal:Connect(ListenerFunction)
 		Connections[Index] = nil;
 	end;
 
-	-- Connection.disconnect = Connection.Disconnect;
-
 	Connections[Index] = Connection;
 
 	return Connection;
@@ -79,8 +73,6 @@ function MockSignal:Once(ListenerFunction)
 		Connections[Index] = nil;
 	end;
 
-	-- Connection.disconnect = Connection.Disconnect;
-
 	Connections[Index] = Connection;
 
 	return Connection;
@@ -96,7 +88,7 @@ function MockSignal:Wait()
 
 	local Returns = { coroutine.yield() };
 
-	self[Index] = nil;
+	YieldingThreads[Index] = nil;
 
 	return table.unpack(Returns);
 end;
@@ -106,13 +98,17 @@ function MockSignal:DisconnectAll()
 end;
 
 function MockSignal:Destroy()
-	self:DisconnectAll();
+	local YieldingThreads = self.YieldingThreads;
+	
+	for Index, Thread in YieldingThreads do
+		coroutine.resume(Thread);
+		YieldingThreads[Index] = nil;
+	end
+	
+	table.clear(self.Connections);
 
 	table.clear(self);
 	setmetatable(self, nil);
 end;
-
--- MockSignal.connect = MockSignal.Connect;
--- MockSignal.wait = MockSignal.Wait;
 
 return MockSignal;
