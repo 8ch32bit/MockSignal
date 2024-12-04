@@ -1,131 +1,76 @@
---// Author: 8ch_32bit
+--// Author: 8ch99
 --// RBXScriptSignal emulation tailored for max performance
 
 --!strict
 --!native
 --!optimize 2
 
-export type MockConnection = {
-	__type: string,
-	FiresOnce: boolean,
-	Listener: (...any) -> (),
-	Disconnect: (MockConnection, string) -> (),
-}
+local Signal = {}
+Signal.__index = Signal
 
-export type MockSignal = {
-	__type: string,
-	Name: string?,
-	Connections: { MockConnection },
-	YieldingThreads: { thread },
-}
-
-local MockSignal = {}
-MockSignal.__index = MockSignal
-
-function MockSignal.new(Name: string?): MockSignal
-	local self = {
-		__type = "MockSignal",
-		Connections = {},
-		YieldingThreads = {},
-		Name = `{Name}`,
-	}
-
-	return setmetatable(self, MockSignal)
-	--^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ IGNORE THIS WARNING
+function Signal.new()
+	local self = setmetatable({}, Signal)
+	self.__meta = "Signal"
+	return self
 end
 
---// TODO: Fires the signal with the given arguments, resuming all yielding threads and firing all connection listeners
-function MockSignal:Fire(...: any)
-	local Connections = self.Connections
-	local YieldingThreads = self.YieldingThreads
+function Signal:Fire(...)
+	local Current = self.TopConnection
+	while Current do
+		task.spawn(Current.Function, ...)
+		Current = Current.Next
+	end
+end
+
+function Signal:Connect(Function)
+	local Connection = {}
+	Connection.Function = Function
+	Connection.Next = self.TopConnection
+	self.TopConnection = Connection
 	
-	task.spawn(function(...: any)
-		for Index, Thread in ipairs(YieldingThreads) do
-			YieldingThreads[Index] = nil
-			coroutine.resume(Thread, ...)
-		end
-	end, ...)
-	
-	task.spawn(function(...: any)
-		for Index, Connection in ipairs(Connections) do
-			local Listener: (...any) -> () = Connection.Listener
-			if Connection.FiresOnce then
-				Connections[Index] = nil
+	function Connection.Disconnect()
+		local Current: any? = self.TopConnection
+		if Current == Connection then
+			self.TopConnection = Current.Next
+		else
+			while Current do
+				local Next = Current.Next
+				if Next and Next == Connection then
+					Current.Next = Next.Next
+					break
+				end
+				Current = Next
 			end
-			task.spawn(Listener, ...)
 		end
-	end, ...)
-end
-
---// TODO: Creates a MockConnection, that can be fired any given amount of times. Only gets disposed when the parent signal gets destroyed. 
-function MockSignal:Connect(ListenerFunction: (...any) -> ()): MockConnection
-	local Connections = self.Connections
-	local Index = #Connections + 1
-
-	local MockConnection = {
-		__type = "MockConnection",
-		FiresOnce = false,
-		Listener = ListenerFunction,
-	}
-
-	function MockConnection.Disconnect()
-		Connections[Index] = nil
+		table.clear(Connection)
 	end
-
-	Connections[Index] = MockConnection
-
-	return MockConnection :: MockConnection
-end
-
---// TODO: Creates a MockConnection that only fires once, and gets disposed after being fired
-function MockSignal:Once(ListenerFunction: (...any) -> ()): MockConnection
-	local Connections = self.Connections
-	local Index = #Connections + 1
-
-	local MockConnection = {
-		__type = "MockConnection",
-		FiresOnce = true,
-		Listener = ListenerFunction,
-	}
-
-	function MockConnection.Disconnect()
-		Connections[Index] = nil
-	end
-
-	Connections[Index] = MockConnection
-
-	return MockConnection :: MockConnection
-end
-
---// TODO: Yields the current thread until the signal is fired, also returning any fed results from what fired the signal.
-function MockSignal:Wait()
-	local YieldingThreads = self.YieldingThreads
-	local Index = #YieldingThreads + 1
-
-	local Thread: thread = coroutine.running()
-
-	YieldingThreads[Index] = Thread
-
-	local Returns: { any } = { coroutine.yield() }
-
-	YieldingThreads[Index] = nil
-
-	return table.unpack(Returns)
-end
-
---// TODO: Disconnects every connection
-function MockSignal:DisconnectAll()
-	table.clear(self.Connections)
-end
-
---// TODO: Completely dispose the MockSignal
-function MockSignal:Destroy()
-	self:DisconnectAll()
 	
-	table.clear(self.YieldingThreads)
-	table.clear(self)
-	
+	return Connection
+end
+
+function Signal:Once(Function)
+	local Connection = nil
+	Connection = self:Connect(function(...)
+		Connection:Disconnect()
+		return Function(...)
+	end)
+end
+
+function Signal:Wait()
+	local CurrentThread = coroutine.running()
+	self:Once(function(...)
+		task.spawn(CurrentThread, ...)
+	end)
+	return coroutine.yield()
+end
+
+function Signal:DisconnectAll()
+	self.TopConnection = nil
+end
+
+function Signal:Destroy()
+	self.TopConnection = nil
 	setmetatable(self, nil)
 end
 
-return MockSignal :: typeof(MockSignal)
+return Signal
