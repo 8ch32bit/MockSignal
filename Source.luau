@@ -43,12 +43,12 @@ export type Signal = typeof(setmetatable({}, {})) & {
 	__meta: string,
 	TopConnection: ConnectionNode?,
 	--// Functions
-	Fire: (...any) -> (),
-	Connect: ((...any) -> (...any)) -> ConnectionNode,
-	Once: ((...any) -> (...any)) -> ConnectionNode,
-	Wait: () -> (...any),
-	DisconnectAll: () -> (),
-	Destroy: () -> (),
+	Fire: (Signal, ...any) -> (),
+	Connect: (Signal, (...any) -> (...any)) -> ConnectionNode,
+	Once: (Signal, (...any) -> (...any)) -> ConnectionNode,
+	Wait: (Signal) -> (...any),
+	DisconnectAll: (Signal) -> (),
+	Destroy: (Signal) -> (),
 }
 
 local Signal = {}
