@@ -1,7 +1,6 @@
 --// Author: 8ch99
 --// RBXScriptSignal emulation tailored for max performance
 
---!strict
 --!native
 --!optimize 2
 
@@ -59,7 +58,9 @@ end
 function Signal:Wait()
 	local CurrentThread = coroutine.running()
 	self:Once(function(...)
-		task.spawn(CurrentThread, ...)
+		if coroutine.status(CurrentThread) ~= "dead" then
+			task.spawn(CurrentThread, ...)
+		end
 	end)
 	return coroutine.yield()
 end
