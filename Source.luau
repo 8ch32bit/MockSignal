@@ -1,6 +1,6 @@
 --// Author: 8ch99
 --// Date written: 18/01/2025
---// RBXScriptSignal emulation tailored for max performance
+--// RBXScriptSignal emulation tailored for max performance and cleanliness
 
 --[[
 
@@ -32,7 +32,7 @@ SOFTWARE.
 
 API:
 
-Signal.new() - Creates a blank identity signal
+Signal.new() - Creates a new blank identity signal
 Signal:Fire(...: any) - Fires the signal immediately with the given args
 Signal:FireDeferred(...: any) - Fires the signal's connections in sync (deferred)
 Signal:Connect(Function) - Creates a ConnectionNode with that function, adds it to the signal, and returns the node
@@ -131,13 +131,16 @@ function Signal:Connect(Function): ConnectionNode
 	self.TopNode = Node
 	
 	function Node.Disconnect()
+		if not Node.Connected then
+			return
+		end
 		Node.Connected = false
-		local Current: any? = self.TopNode
+		local Current: ConnectionNode? = self.TopNode
 		if Current == Node then
-			self.TopNode = Current.Next
+			self.TopNode = Node.Next
 		else
 			while Current do
-				local Next = Current.Next
+				local Next: ConnectionNode? = Current.Next
 				if Next and Next == Node then
 					Current.Next = Next.Next
 					break
