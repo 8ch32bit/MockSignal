@@ -28,29 +28,73 @@ SOFTWARE.
 
 ]]
 
+--[[
+
+API:
+
+Signal.new() - Creates a blank identity signal
+Signal:Fire(...: any) - Fires the signal immediately with the given args
+Signal:FireDeferred(...: any) - Fires the signal's connections in sync (deferred)
+Signal:Connect(Function) - Creates a ConnectionNode with that function, adds it to the signal, and returns the node
+Signal:Once(Function) - Same as Signal:Connect(), except will disconnect as soon as the signal is fired
+Signal:Wait() - Yields the current thread until the signal is fired, and returns the arguments fed via. Signal:Fire() or Signal:FireDeferred()
+Signal:DisconnectAll() - Disconnects every connection node in the signal
+Signal:Clone() - Creates a new signal with the exact same connection nodes
+Signal:Destroy() - Completely disposes the signal, call this when you no longer need it
+
+]]
+
 --!strict
 --!native
 --!optimize 2
 
+--// Types
+
 export type ConnectionNode = {
+	Connected: boolean,
 	Function: (...any) -> (...any),
 	Next: ConnectionNode?,
-	Connected: boolean,
 	Disconnect: (ConnectionNode?) -> (),
 }
 
 export type Signal = typeof(setmetatable({}, {})) & {
 	--// Properties
 	__meta: string,
-	TopConnection: ConnectionNode?,
+	TopNode: ConnectionNode?,
 	--// Functions
 	Fire: (Signal, ...any) -> (),
+	FireDeferred: (Signal, ...any) -> (),
 	Connect: (Signal, (...any) -> (...any)) -> ConnectionNode,
 	Once: (Signal, (...any) -> (...any)) -> ConnectionNode,
 	Wait: (Signal) -> (...any),
 	DisconnectAll: (Signal) -> (),
+	Clone: (Signal) -> Signal,
 	Destroy: (Signal) -> (),
 }
+
+--// Dependencies
+
+local coroutine_running = coroutine.running
+local coroutine_yield = coroutine.yield
+local coroutine_status = coroutine.status
+
+local task_spawn = task.spawn
+local task_defer = task.defer
+
+local table_clear = table.clear
+
+local function DeepCopy(Table: { [any]: any })
+	local Clone = {}
+	for Index, Value in Table do
+		if type(Value) == "table" then
+			Value = DeepCopy(Value)
+		end
+		Clone[Index] = Value
+	end
+	return Clone
+end
+
+--// @class Signal
 
 local Signal = {}
 Signal.__index = Signal
@@ -61,77 +105,98 @@ function Signal.new(): Signal
 	return self
 end
 
-function Signal:Fire(...)
-	local Current = self.TopConnection
-	while Current do
-		task.spawn(Current.Function, ...)
-		Current = Current.Next
+function Signal:Fire(...: any)
+	local Node: ConnectionNode? = self.TopNode
+	while Node do
+		task_spawn(Node.Function, ...)
+		Node = Node.Next
 	end
 end
 
-function Signal:FireDeferred(...)
-	local Current = self.TopConnection
-	while Current do
-		task.defer(Current.Function, ...)
-		Current = Current.Next
+function Signal:FireDeferred(...: any)
+	local Node: ConnectionNode? = self.TopNode
+	while Node do
+		task_defer(Node.Function, ...)
+		Node = Node.Next
 	end
 end
 
 function Signal:Connect(Function): ConnectionNode
-	local Connection = {}
-	Connection.Connected = true
-	Connection.Function = Function
-	Connection.Next = self.TopConnection
-	self.TopConnection = Connection
+	--// connections are not a seperate class to prevent a ton of cross referencing and slightly decrease memory usage
+	--// as much better as it would look as a seperate class this is probably the faster method
+	local Node = {}
+	Node.Connected = true
+	Node.Function = Function
+	Node.Next = self.TopNode
+	self.TopNode = Node
 	
-	function Connection.Disconnect()
-		Connection.Connected = false
-		local Current: any? = self.TopConnection
-		if Current == Connection then
-			self.TopConnection = Current.Next
+	function Node.Disconnect()
+		Node.Connected = false
+		local Current: any? = self.TopNode
+		if Current == Node then
+			self.TopNode = Current.Next
 		else
 			while Current do
 				local Next = Current.Next
-				if Next and Next == Connection then
+				if Next and Next == Node then
 					Current.Next = Next.Next
 					break
 				end
 				Current = Next
 			end
 		end
-		table.clear(Connection)
+		table_clear(Node)
 	end
 	
-	return Connection :: ConnectionNode
+	return Node :: ConnectionNode
 end
 
 function Signal:Once(Function): ConnectionNode
-	local Connection: ConnectionNode = nil
-	Connection = self:Connect(function(...)
-		Connection:Disconnect()
+	local Node: ConnectionNode = nil
+	Node = self:Connect(function(...)
+		Node:Disconnect()
 		return Function(...)
 	end)
-	return Connection
+	return Node
 end
 
 function Signal:Wait(): (...any)
-	local CurrentThread = coroutine.running()
-	local ResumerConnection: ConnectionNode = nil
-	ResumerConnection = self:Connect(function(...)
-		if coroutine.status(CurrentThread) == "suspended" then
-			task.spawn(CurrentThread, ...)
+	local CurrentThread = coroutine_running()
+	local ResumerNode: ConnectionNode = nil
+	ResumerNode = self:Connect(function(...)
+		if coroutine_status(CurrentThread) == "suspended" then
+			task_spawn(CurrentThread, ...)
 		end
-		ResumerConnection:Disconnect()
+		ResumerNode:Disconnect()
 	end)
-	return coroutine.yield()
+	return coroutine_yield()
 end
 
 function Signal:DisconnectAll()
-	self.TopConnection = nil
+	local Node: ConnectionNode? = self.TopNode
+	while Node do
+		Node.Connected = false
+		local Next: ConnectionNode? = Node.Next
+		if Next then
+			Node.Next = nil
+		end
+		Node = Next
+	end
+	self.TopNode = nil
+end
+
+function Signal:Clone()
+	local TopNode = self.TopNode
+	local Clone = Signal.new()
+	if TopNode then
+		Clone.TopNode = DeepCopy(TopNode)
+	end
+	return Clone
 end
 
 function Signal:Destroy()
-	self.TopConnection = nil
+	self:DisconnectAll()
+	table_clear(self)
 	setmetatable(self, nil)
 end
 
