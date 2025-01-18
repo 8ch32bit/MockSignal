@@ -1,4 +1,5 @@
 --// Author: 8ch99
+--// Date written: 18/01/2025
 --// RBXScriptSignal emulation tailored for max performance
 
 --[[
@@ -68,14 +69,23 @@ function Signal:Fire(...)
 	end
 end
 
+function Signal:FireDeferred(...)
+	local Current = self.TopConnection
+	while Current do
+		task.defer(Current.Function, ...)
+		Current = Current.Next
+	end
+end
+
 function Signal:Connect(Function): ConnectionNode
 	local Connection = {}
-	Connection.Connected = false
+	Connection.Connected = true
 	Connection.Function = Function
 	Connection.Next = self.TopConnection
 	self.TopConnection = Connection
 	
 	function Connection.Disconnect()
+		Connection.Connected = false
 		local Current: any? = self.TopConnection
 		if Current == Connection then
 			self.TopConnection = Current.Next
@@ -106,10 +116,12 @@ end
 
 function Signal:Wait(): (...any)
 	local CurrentThread = coroutine.running()
-	self:Once(function(...)
+	local ResumerConnection: ConnectionNode = nil
+	ResumerConnection = self:Connect(function(...)
 		if coroutine.status(CurrentThread) == "suspended" then
 			task.spawn(CurrentThread, ...)
 		end
+		ResumerConnection:Disconnect()
 	end)
 	return coroutine.yield()
 end
