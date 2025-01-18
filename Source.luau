@@ -36,11 +36,11 @@ Signal.new() - Creates a new blank identity signal
 Signal:Fire(...: any) - Fires the signal immediately with the given args
 Signal:FireDeferred(...: any) - Fires the signal's connections in sync (deferred)
 Signal:Connect(Function) - Creates a ConnectionNode with that function, adds it to the signal, and returns the node
-Signal:Once(Function) - Same as Signal:Connect(), except will disconnect as soon as the signal is fired
+Signal:Once(Function) - Same as Signal:Connect(), except the node will disconnect as soon as the signal is fired
 Signal:Wait() - Yields the current thread until the signal is fired, and returns the arguments fed via. Signal:Fire() or Signal:FireDeferred()
 Signal:DisconnectAll() - Disconnects every connection node in the signal
 Signal:Clone() - Creates a new signal with the exact same connection nodes
-Signal:Destroy() - Completely disposes the signal, call this when you no longer need it
+Signal:Destroy() - Completely disposes the signal. Call this when you no longer need it
 
 ]]
 
@@ -99,12 +99,20 @@ end
 local Signal = {}
 Signal.__index = Signal
 
+--[[
+	@TODO Creates a new blank identity signal
+	@returns Signal
+]]
 function Signal.new(): Signal
 	local self = setmetatable({} :: Signal, Signal)
 	self.__meta = "Signal"
 	return self
 end
 
+--[[
+	@TODO Fires the signal immediately with the given args
+	@param VARARG : any - Arguments to give to the connection node functions
+]]
 function Signal:Fire(...: any)
 	local Node: ConnectionNode? = self.TopNode
 	while Node do
@@ -113,6 +121,10 @@ function Signal:Fire(...: any)
 	end
 end
 
+--[[
+	@TODO Fires the signal's connections in sync (deferred)
+	@param VARARG : any - Arguments to give to the connection node functions
+]]
 function Signal:FireDeferred(...: any)
 	local Node: ConnectionNode? = self.TopNode
 	while Node do
@@ -121,6 +133,12 @@ function Signal:FireDeferred(...: any)
 	end
 end
 
+
+--[[
+	@TODO Creates a ConnectionNode with that function, adds it to the signal, and returns the node
+	@param Function : any
+	@returns ConnectionNode
+]]
 function Signal:Connect(Function): ConnectionNode
 	--// connections are not a seperate class to prevent a ton of cross referencing and slightly decrease memory usage
 	--// as much better as it would look as a seperate class this is probably the faster method
@@ -154,6 +172,11 @@ function Signal:Connect(Function): ConnectionNode
 	return Node :: ConnectionNode
 end
 
+--[[
+	@TODO Same as Signal:Connect(), except the node will disconnect as soon as the signal is fired
+	@param Function : (...any) -> () - The function to make the new connection node with
+	@returns ConnectionNode
+]]
 function Signal:Once(Function): ConnectionNode
 	local Node: ConnectionNode = nil
 	Node = self:Connect(function(...)
@@ -163,6 +186,11 @@ function Signal:Once(Function): ConnectionNode
 	return Node
 end
 
+--[[
+	@TODO Yields the current thread until the signal is fired, and returns the arguments fed via. Signal:Fire() or Signal:FireDeferred()
+	@param Function : (...any) -> () - The function to make the new connection node with
+	@returns ConnectionNode
+]]
 function Signal:Wait(): (...any)
 	local CurrentThread = coroutine_running()
 	local ResumerNode: ConnectionNode = nil
@@ -175,6 +203,9 @@ function Signal:Wait(): (...any)
 	return coroutine_yield()
 end
 
+--[[
+	Disconnects every connection node in the signal
+]]
 function Signal:DisconnectAll()
 	local Node: ConnectionNode? = self.TopNode
 	while Node do
@@ -188,6 +219,10 @@ function Signal:DisconnectAll()
 	self.TopNode = nil
 end
 
+--[[
+	@TODO Creates a new signal with the exact same connection nodes
+	@returns Signal
+]]
 function Signal:Clone()
 	local TopNode = self.TopNode
 	local Clone = Signal.new()
@@ -197,6 +232,10 @@ function Signal:Clone()
 	return Clone
 end
 
+
+--[[
+	@TODO Completely disposes the signal. Call this when you no longer need it
+]]
 function Signal:Destroy()
 	self:DisconnectAll()
 	table_clear(self)
