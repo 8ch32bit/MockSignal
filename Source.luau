@@ -31,16 +31,15 @@ SOFTWARE.
 --[[
 
 API:
-
-Signal.new() - Creates a new blank identity signal
-Signal:Fire(...: any) - Fires the signal immediately with the given args
-Signal:FireDeferred(...: any) - Fires the signal's connections in sync (deferred)
-Signal:Connect(Function) - Creates a ConnectionNode with that function, adds it to the signal, and returns the node
-Signal:Once(Function) - Same as Signal:Connect(), except the node will disconnect as soon as the signal is fired
-Signal:Wait() - Yields the current thread until the signal is fired, and returns the arguments fed via. Signal:Fire() or Signal:FireDeferred()
-Signal:DisconnectAll() - Disconnects every connection node in the signal
-Signal:Clone() - Creates a new signal with the exact same connection nodes
-Signal:Destroy() - Completely disposes the signal. Call this when you no longer need it
+	Signal.new() - Creates a new blank identity signal
+	Signal:Fire(...: any) - Fires the signal immediately with the given args
+	Signal:FireDeferred(...: any) - Fires the signal's connections in sync (deferred)
+	Signal:Connect(Function) - Creates a ConnectionNode with that function, adds it to the signal, and returns the node
+	Signal:Once(Function) - Same as Signal:Connect(), except the node will disconnect as soon as the signal is fired
+	Signal:Wait() - Yields the current thread until the signal is fired, and returns the arguments fed via. Signal:Fire() or Signal:FireDeferred()
+	Signal:DisconnectAll() - Disconnects every connection node in the signal
+	Signal:Clone() - Creates a new signal with the exact same connection nodes
+	Signal:Destroy() - Completely disposes the signal. Call this when you no longer need it
 
 ]]
 
@@ -147,7 +146,7 @@ function Signal:Connect(Function): ConnectionNode
 	Node.Function = Function
 	Node.Next = self.TopNode
 	self.TopNode = Node
-	
+
 	function Node.Disconnect()
 		if not Node.Connected then
 			return
@@ -168,7 +167,7 @@ function Signal:Connect(Function): ConnectionNode
 		end
 		table_clear(Node)
 	end
-	
+
 	return Node :: ConnectionNode
 end
 
